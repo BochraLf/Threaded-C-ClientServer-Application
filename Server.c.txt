@@ -1,0 +1,70 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <pthread.h>
+
+#define MAX_MSG_LEN 255
+
+int clientSocket;
+
+void* handleClient(void* arg) {
+    char phrase[MAX_MSG_LEN];
+    do {
+        // Check for messages from the client
+        memset(phrase, 0, sizeof(phrase));
+        if (recv(clientSocket, phrase, sizeof(phrase), 0) == -1) {
+            perror("recv");
+            break;
+        }
+
+        printf("Message from client: %s\n", phrase);
+
+        // Send a message to the client
+        printf("Enter message to send to the client: ");
+        fgets(phrase, sizeof(phrase), stdin);
+
+        if (send(clientSocket, phrase, strlen(phrase), 0) == -1) {
+            perror("send");
+            break;
+        }
+
+    } while (strcmp(phrase, "EXIT\n") != 0);
+
+    // Shutdown the connection
+    shutdown(clientSocket, SHUT_RDWR);
+    close(clientSocket);
+    return NULL;
+}
+
+int main() {
+    // ... (rest of the code)
+
+    // Boucle principale du serveur
+    while (1) {
+        clientSocket = accept(serverSocket, (struct sockaddr*)&clientInfo, &clientInfoSize);
+        if (clientSocket == -1) {
+            perror("accept");
+            close(serverSocket);
+            return 1;
+        }
+
+        printf("Connection accepted from %s\n", inet_ntoa(clientInfo.sin_addr));
+
+        // Création d'un thread pour gérer le client
+        pthread_t clientThread;
+        if (pthread_create(&clientThread, NULL, handleClient, NULL) != 0) {
+            perror("pthread_create");
+            exit(-1);
+        }
+       
+        // Détachement du thread client (libération automatique des ressources à la fin du thread)
+        pthread_detach(clientThread);
+    }
+
+    close(serverSocket);
+
+    return 0;
+}

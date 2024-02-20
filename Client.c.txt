@@ -1,0 +1,59 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <pthread.h>
+
+#define MAX_MSG_LEN 255
+
+int socketID;
+
+void* receiveMessages(void* arg) {
+    char phrase[MAX_MSG_LEN];
+    while (1) {
+        memset(phrase, 0, sizeof(phrase));
+        if (recv(socketID, phrase, sizeof(phrase), 0) == -1) {
+            perror("recv");
+            break;
+        }
+        printf("Message reçu du serveur : %s\n", phrase);
+        if (strcmp(phrase, "EXIT") == 0) {
+            break;
+        }
+    }
+    return NULL;
+}
+
+int main() {
+    // ... (rest of the code)
+
+    // Création du thread pour recevoir les messages
+    pthread_t receiveThread;
+    if (pthread_create(&receiveThread, NULL, receiveMessages, NULL) != 0) {
+        perror("pthread_create");
+        exit(-1);
+    }
+
+    // Boucle principale du client
+    do {
+        // Envoi d'un message au serveur
+        printf("Entrez un message (ou 'EXIT' pour quitter) : ");
+        fgets(phrase, sizeof(phrase), stdin);
+        phrase[strcspn(phrase, "\n")] = '\0';  // Supprimer le retour à la ligne de fgets
+
+        if (send(socketID, phrase, strlen(phrase), 0) == -1) {
+            perror("send");
+            break;
+        }
+
+    } while (strcmp(phrase, "EXIT") != 0);
+
+    // Attente de la fin du thread de réception
+    pthread_join(receiveThread, NULL);
+
+    // Fermeture de la connexion
+    shutdown(socketID, SHUT_RDWR);
+
+    return 0;
+}
